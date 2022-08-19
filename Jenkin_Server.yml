@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Jenkins server
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+
+
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+        InstanceType: !Ref InstanceType
+        SecurityGroups:
+          - !Ref InstanceSecurityGroup
+        KeyName: !Ref KeyName
+        ImageId: ami-0aeeebd8d2ab47354
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash -xe
+              amazon-linux-extras install epel -y
+              sudo yum update -y
+              sudo wget -O /etc/yum.repos.d/jenkins.repo \
+                  https://pkg.jenkins.io/redhat-stable/jenkins.repo
+              sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+              sudo yum upgrade -y
+              sudo yum install jenkins java-1.8.0-openjdk-devel -y
+              sudo systemctl daemon-reload
+              sudo systemctl start jenkins
+              sudo systemctl status jenkins
+              sudo usermod -a -G wheel jenkins
+              sudo yum install java-1.8.0-openjdk-devel -y
+              sudo yum install git -y
+              sudo hostnamectl set-hostname Jenkin.example.com
+              sudo yum install tree -y
+              
+
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+        GroupDescription: Enable SSH access via port 22
+        GroupName: Jenkins_SG
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: '22'
+            ToPort: '22'
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: '8080'
+            ToPort: '8080'
+            CidrIp: 0.0.0.0/0
